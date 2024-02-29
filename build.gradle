@@ -1,0 +1,129 @@
+import proguard.gradle.ProGuardTask
+
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.guardsquare:proguard-gradle:7.4.2'
+    }
+}
+
+plugins {
+    id 'java'
+    id 'maven-publish'
+}
+
+group = 'com.sparrowwallet.bokmakierie'
+version = '1.0'
+
+def secrets = new Properties()
+file("publish.properties").withInputStream {
+    stream -> secrets.load(stream)
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation('org.boofcv:boofcv-core:1.1.3') {
+        exclude group: 'com.google.protobuf'
+        exclude group: 'commons-io'
+        exclude group: 'net.lingala.zip4j'
+        exclude group: 'net.sf.trove4j'
+        exclude group: 'org.apache.commons'
+        exclude group: 'org.apiguardian'
+        exclude group: 'org.deepboof'
+        exclude group: 'org.ejml', module: 'ejml-cdense'
+        exclude group: 'org.ejml', module: 'ejml-dsparse'
+        exclude group: 'org.ejml', module: 'ejml-fdense'
+        exclude group: 'org.ejml', module: 'ejml-fsparse'
+        exclude group: 'org.ejml', module: 'ejml-zdense'
+        exclude group: 'org.boofcv', module: 'boofcv-ip-multiview'
+        exclude group: 'org.boofcv', module: 'boofcv-learning'
+        exclude group: 'org.boofcv', module: 'boofcv-reconstruction'
+        exclude group: 'org.boofcv', module: 'boofcv-sfm'
+        exclude group: 'org.yaml'
+    }
+    testImplementation platform('org.junit:junit-bom:5.9.1')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+}
+
+jar {
+    manifest {
+        attributes("Main-Class": "com.sparrowwallet.bokmakierie.Bokmakierie",
+                   "Automatic-Module-Name": "com.sparrowwallet.bokmakierie")
+    }
+
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+}
+
+test {
+    useJUnitPlatform()
+}
+
+tasks.register('proguard', ProGuardTask) {
+    injars(layout.buildDirectory.file("libs/bokmakierie-${version}.jar"))
+
+    // Automatically handle the Java version of this build.
+    if(System.getProperty('java.version').startsWith('1.')) {
+        // Before Java 9, the runtime classes were packaged in a single jar file.
+        libraryjars "${System.getProperty('java.home')}/lib/rt.jar"
+    } else {
+        // As of Java 9, the runtime classes are packaged in modular jmod files.
+        libraryjars "${System.getProperty('java.home')}/jmods/java.base.jmod", jarfilter: '!**.jar', filter: '!module-info.class'
+        //libraryjars "${System.getProperty('java.home')}/jmods/....."
+    }
+
+    verbose
+
+    keepattributes '*Annotation*'
+    keepattributes 'Signature'
+    keepclassmembers allowoptimization: true, 'enum * { \
+        public static **[] values(); \
+        public static ** valueOf(java.lang.String); \
+    }'
+    keepclasseswithmembers 'public class * { \
+        public static void main(java.lang.String[]); \
+    }'
+    keep 'public class com.sparrowwallet.bokmakierie.Bokmakierie { \
+        public *; \
+    }'
+    keep 'public class com.sparrowwallet.bokmakierie.Result { \
+        public *; \
+    }'
+    keep 'public class boofcv.factory.filter.binary.ConfigThreshold { \
+        public *; \
+    }'
+    keep 'public class boofcv.factory.filter.binary.ThresholdType { \
+        public *; \
+    }'
+
+    dontwarn
+    dontoptimize
+    dontobfuscate
+
+    outjars(layout.buildDirectory.file("libs/bokmakierie-minified-${version}.jar"))
+}
+
+publishing {
+    repositories {
+        maven {
+            credentials {
+                username secrets.username
+                password secrets.password
+            }
+            url 'https://mymavenrepo.com/repo/Ym4HjVje06VlvgK5VxFd/'
+        }
+    }
+
+    publications {
+        maven(MavenPublication) {
+            artifactId = 'bokmakierie'
+            artifact (layout.buildDirectory.file("libs/bokmakierie-minified-${version}.jar"))
+        }
+    }
+}
