@@ -112,11 +112,17 @@ tasks.register('proguard', ProGuardTask) {
 publishing {
     repositories {
         maven {
-            credentials {
-                username secrets.username
-                password secrets.password
+            name = "Forgejo-SparrowWallet"
+            url = uri("https://code.sparrowwallet.com/api/packages/sparrowwallet/maven")
+
+            credentials(HttpHeaderCredentials) {
+                name = "Authorization"
+                value = "token ${secrets.token}"
             }
-            url 'https://mymavenrepo.com/repo/Ym4HjVje06VlvgK5VxFd/'
+
+            authentication {
+                header(HttpHeaderAuthentication)
+            }
         }
     }
 
